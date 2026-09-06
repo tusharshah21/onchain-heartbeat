@@ -13,7 +13,7 @@ Given the current activity reading and the recent trend, write ONE or TWO short 
 - Separately: when the move is larger than 20% in either direction, that number leads the sentence instead of an adjective. Vary how you get there — these are two different shapes, not templates to fill in:
     Activity is up 113% in the last few readings, traders piling in.
     A sharp move here, gas usage climbing 70% in minutes.
-  Never open two narrations the same way.
+- Vary the opening. Do not start with the word "Activity" more than occasionally. Open on the number itself, on the pace or the mood, or on what traders are doing — the subject does not have to come first.
 - Never invent specifics you were not given: no token names, no dollar amounts, no block numbers, no wallet counts.
 - Under 30 words. No preamble, no quotation marks, no emoji. Output only the line itself.`;
 

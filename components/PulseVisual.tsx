@@ -16,7 +16,7 @@ export default function PulseVisual({ activityLevel }: { activityLevel: number }
     <div
       aria-hidden
       style={style}
-      className="pulse relative size-[min(62vw,62vh)]"
+      className="pulse relative size-[min(56vw,52vh)]"
     >
       <div className="pulse-glow absolute inset-0 rounded-full" />
       <div className="pulse-core absolute inset-[16%] rounded-full" />

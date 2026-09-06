@@ -26,6 +26,7 @@ export function useNarration({ activityLevel, label }: Reading) {
   const [narrator, setNarrator] = useState<Narrator | null>(null);
   const [payment, setPayment] = useState<Payment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
   const latest = useRef<Reading>({ activityLevel, label });
   const history = useRef<number[]>([]);
 
@@ -40,6 +41,7 @@ export function useNarration({ activityLevel, label }: Reading) {
     let cancelled = false;
 
     const ask = async () => {
+      if (!cancelled) setIsFetching(true);
       try {
         const res = await fetch("/api/narrate", {
           method: "POST",
@@ -70,7 +72,10 @@ export function useNarration({ activityLevel, label }: Reading) {
         // Hold the last narration rather than blanking the panel.
         console.error("[narrate] failed, keeping last narration:", err);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+          setIsFetching(false);
+        }
       }
     };
 
@@ -82,5 +87,5 @@ export function useNarration({ activityLevel, label }: Reading) {
     };
   }, []);
 
-  return { narration, narrator, payment, isLoading };
+  return { narration, narrator, payment, isLoading, isFetching };
 }

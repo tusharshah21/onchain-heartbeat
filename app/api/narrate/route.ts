@@ -104,9 +104,13 @@ export async function POST(request: Request) {
     return Response.json({ narration, narrator, payment });
   } catch (err) {
     // The client keeps showing its last narration, so a soft failure is fine.
+    // Detail stays in the server log rather than going to the browser, and the
+    // receipt still ships so a paid-but-undelivered cycle is visible.
     console.error("[narrate] LLM call failed:", err);
     const status = err instanceof OpenAI.APIError ? err.status : 502;
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return Response.json({ error: message }, { status: status ?? 502 });
+    return Response.json(
+      { error: "Narration unavailable", narrator, payment },
+      { status: status ?? 502 },
+    );
   }
 }

@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+:root {
+  --background: #06070a;
+  --foreground: #ededed;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* --- Onchain Heartbeat pulse --- */
+
+/* Registered so amplitude/hue changes ease instead of snapping every update. */
+@property --amp {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.1;
+}
+@property --hue {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 190;
+}
+
+.pulse {
+  transition: --amp 1.4s ease-out, --hue 1.4s ease-out;
+}
+
+.pulse-core,
+.pulse-glow {
+  animation: heartbeat var(--beat) cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+  will-change: transform;
+}
+
+.pulse-core {
+  background: radial-gradient(
+    circle at 50% 38%,
+    hsl(var(--hue) 100% 84%),
+    hsl(var(--hue) 95% 55%) 45%,
+    hsl(var(--hue) 92% 28%) 100%
+  );
+  box-shadow:
+    0 0 70px hsl(var(--hue) 95% 55% / 0.5),
+    inset 0 0 50px hsl(var(--hue) 100% 82% / 0.3);
+}
+
+.pulse-glow {
+  background: radial-gradient(
+    circle,
+    hsl(var(--hue) 95% 55% / 0.35) 0%,
+    transparent 68%
+  );
+  filter: blur(20px);
+}
+
+/* Double thump, then rest. */
+@keyframes heartbeat {
+  0% { transform: scale(1); }
+  10% { transform: scale(calc(1 + var(--amp))); }
+  22% { transform: scale(1); }
+  32% { transform: scale(calc(1 + var(--amp) * 0.55)); }
+  46% { transform: scale(1); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-core,
+  .pulse-glow {
+    animation: none;
+  }
+}

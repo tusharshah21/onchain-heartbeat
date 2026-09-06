@@ -100,8 +100,18 @@ overriding the address viem ships for Sepolia. Cached 10 minutes on success,
 That deployment is a separate namespace: names in the mainnet-lineage Sepolia
 registry do not resolve through it, and vice versa. `nick.eth` returns a
 resolver under viem's default address and `0x0` under this one. So
-`onchain-heartbeat.eth` has to be registered **in the hackathon deployment** —
-registering it through the ordinary Sepolia flow will not make it resolve here.
+`onchain-heartbeat.eth` has to be registered **in the hackathon deployment**;
+registering it through app.ens.domains will not make it resolve here.
+
+Register at the hackathon ENS App, not app.ens.domains:
+
+```
+https://hackathon-deployment-manager-app-v4.ens-cf.workers.dev
+```
+
+Wallet on Sepolia, funded from a faucet, then search and register the name —
+and set the ETH address record afterwards, since resolution returns null
+without it.
 
 ## Data source
 

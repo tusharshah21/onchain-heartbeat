@@ -63,9 +63,26 @@ The revert carries no data — a bare `revert()`, no reason string and no custom
 
 ## Root cause
 
-Two things are wrong with the `initialize` payload, either of which is sufficient:
+**The app calls the wrong initializer.** The implementation at `0xa9d3814a…614e` exposes:
 
-**The implementation does not expose that function.** Scanning the 15,511-byte implementation at `0xa9d3814a…614e` for `0x7058b559` and six other common initialize shapes:
+```
+0x33cc44a0  initialize((address,uint256)[],bytes[])   <- what it has
+0x7058b559  initialize(address,uint256,bytes[])       <- what the app calls
+```
+
+The first parameter is an **array of (address, roleBitmap) tuples**. The app flattens it into a bare `address, uint256` pair, which changes the selector, so the call matches no function and reverts.
+
+A `deployProxy` that succeeded on this same factory (tx `0x0654b313dca0f7adcc7b65bb7d8821195a219d1b563be85e410f1b7dda6ddf1b`) sends:
+
+```
+0x33cc44a0
+  [(0x9780aFE8…dd0B, 0x1111…1111)]   one (grantee, roles) tuple
+  []                                  no extra setter calls
+```
+
+Note `0x1111…1111` is a **role bitmap, not a placeholder** — the same value appears in the working call. An earlier revision of this report speculated it was unfilled form state; that was wrong.
+
+Scanning the 15,511-byte implementation for `0x7058b559` and six other common initialize shapes confirms the app's selector is absent:
 
 ```
   -      initialize(address,uint256,bytes[])   <- what the app calls
@@ -78,11 +95,9 @@ Two things are wrong with the `initialize` payload, either of which is sufficien
 PRESENT  multicall(bytes[])
 ```
 
-None of the initialize variants are present. Delegatecalling `0x7058b559` into it hits no matching function.
+None of them are present, only `0x33cc44a0`.
 
-**The first argument is not a contract.** `0xad1c4453df163396d2b4a2173212fc73c537652d` has no bytecode — it is an EOA, where a registry or resolver contract appears to be expected.
-
-The second argument, `0x1111…1111` (32 bytes of `0x11`), reads like an unfilled placeholder rather than a real value, which suggests the frontend may be serialising default/uninitialised form state into the call.
+The fix is to ABI-encode the first argument as `(address,uint256)[]` — a one-element array containing the `(owner, roleBitmap)` tuple — rather than as two flat parameters.
 
 ## Reproduction
 
@@ -134,10 +149,10 @@ Expected output: rows 1 and 3 revert, rows 2 and 4 return a proxy address, and t
 
 ## Suggested fixes
 
-1. Emit an `initialize` call matching a selector the implementation actually exposes — or, if initialisation is meant to be skipped, pass empty `bytes` (which already succeeds).
-2. Pass a contract address as the first initialize argument, not an EOA.
-3. Check where `0x1111…1111` comes from; it looks like placeholder state reaching the encoder.
-4. Drop the hardcoded `gas: 21_000_000` and use `eth_estimateGas`, with a modest buffer.
+1. Encode the first `initialize` argument as `(address,uint256)[]`, giving selector `0x33cc44a0`, instead of flattening it to `address,uint256` (`0x7058b559`).
+2. Drop the hardcoded `gas: 21_000_000` and use `eth_estimateGas` with a modest buffer.
+
+Working reference: tx `0x0654b313dca0f7adcc7b65bb7d8821195a219d1b563be85e410f1b7dda6ddf1b` on the same factory.
 
 ## Caveats
 

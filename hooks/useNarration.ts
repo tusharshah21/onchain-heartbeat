@@ -8,12 +8,23 @@ const BUFFER = 8; // readings kept for trend context
 
 type Reading = { activityLevel: number; label: string };
 
+export type Narrator = { name: string; address: string | null; resolved: boolean };
+export type Payment = {
+  paid: boolean;
+  reason?: string;
+  amountHbar?: string;
+  txId?: string;
+  explorerUrl?: string;
+};
+
 /**
  * Narration is deliberately decoupled from where the activity numbers come
  * from — hand it any { activityLevel, label } and it does the rest.
  */
 export function useNarration({ activityLevel, label }: Reading) {
   const [narration, setNarration] = useState("");
+  const [narrator, setNarrator] = useState<Narrator | null>(null);
+  const [payment, setPayment] = useState<Payment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const latest = useRef<Reading>({ activityLevel, label });
   const history = useRef<number[]>([]);
@@ -42,9 +53,19 @@ export function useNarration({ activityLevel, label }: Reading) {
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
         }
-        const { narration } = await res.json();
-        if (cancelled || typeof narration !== "string" || !narration) return;
-        setNarration(narration);
+        const data = await res.json();
+        if (cancelled || typeof data.narration !== "string" || !data.narration) return;
+        setNarration(data.narration);
+        if (data.narrator) setNarrator(data.narrator);
+        // Each narration is bought separately, so the receipt tracks the line.
+        if (data.payment) {
+          setPayment(data.payment);
+          if (data.payment.paid) {
+            console.log(
+              `[x402] this narration cost ${data.payment.amountHbar} HBAR — ${data.payment.explorerUrl}`,
+            );
+          }
+        }
       } catch (err) {
         // Hold the last narration rather than blanking the panel.
         console.error("[narrate] failed, keeping last narration:", err);
@@ -61,5 +82,5 @@ export function useNarration({ activityLevel, label }: Reading) {
     };
   }, []);
 
-  return { narration, isLoading };
+  return { narration, narrator, payment, isLoading };
 }

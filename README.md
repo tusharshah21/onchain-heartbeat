@@ -48,6 +48,43 @@ Without it the route returns 502 and the panel keeps whatever it last said.
 Model and prompt are at the top of `app/api/narrate/route.ts`; cadence and
 buffer size at the top of `hooks/useNarration.ts`.
 
+## Onchain identity and payments (phase 4)
+
+Both are additive. With nothing configured the app still runs: the resource is
+free, the payment step logs a skip, and the narrator name renders unresolved.
+
+### Hedera x402 micropayment
+
+Before each narration the server buys `/api/chain-data`, which is metered with
+`@x402/next`. The GET comes back `402`, the payer signs an HBAR transfer, the
+public facilitator settles it on Hedera testnet, and the retry returns the
+data. Price is 0.001 HBAR (`PRICE_TINYBARS` in `lib/x402.ts`).
+
+```
+HEDERA_ACCOUNT_ID=0.0.xxxxxxx     # payer (the agent)
+HEDERA_PRIVATE_KEY=302e0201...    # payer's DER private key
+HEDERA_PAY_TO=0.0.yyyyyyy         # recipient (the data provider)
+```
+
+The facilitator pays gas, so the payer only needs HBAR for the payments
+themselves. Confirm the fee payer account still matches with:
+
+```
+curl -s https://x402.org/facilitator/supported
+```
+
+Override with `X402_FEE_PAYER` / `X402_FACILITATOR_URL` if it has changed.
+
+### ENS identity
+
+```
+NARRATOR_ENS_NAME=onchain-heartbeat.eth   # default
+SEPOLIA_RPC_URL=https://...               # optional, viem's public RPC otherwise
+```
+
+Resolved against Sepolia via viem's universal resolver and cached for 10
+minutes. Until the name is registered the UI shows it as `(unregistered)`.
+
 ## Data source
 
 The pulse is driven by live Base mainnet gas usage, polled from the public RPC

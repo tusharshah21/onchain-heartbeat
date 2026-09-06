@@ -1,8 +1,14 @@
+import type { Narrator, Payment } from "@/hooks/useNarration";
+
 export default function NarrationBox({
   narration,
+  narrator,
+  payment,
   isLoading,
 }: {
   narration: string;
+  narrator: Narrator | null;
+  payment: Payment | null;
   isLoading: boolean;
 }) {
   const text = narration || "Listening to the chain…";
@@ -24,6 +30,30 @@ export default function NarrationBox({
       >
         {text}
       </p>
+
+      {(narrator || payment?.paid) && (
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-white/[0.07] pt-3 font-mono text-[10px] text-white/30">
+          {narrator && (
+            <span title={narrator.address ?? "not registered on Sepolia yet"}>
+              narrated by{" "}
+              <span className={narrator.resolved ? "text-white/55" : "text-white/30"}>
+                {narrator.name}
+              </span>
+              {narrator.resolved ? " ✓" : " (unregistered)"}
+            </span>
+          )}
+          {payment?.paid && payment.explorerUrl && (
+            <a
+              href={payment.explorerUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-white/40 underline decoration-white/20 underline-offset-2 hover:text-white/70"
+            >
+              paid {payment.amountHbar} ℏ ↗
+            </a>
+          )}
+        </div>
+      )}
       <span className="sr-only">{isLoading ? "Loading narration" : ""}</span>
     </section>
   );

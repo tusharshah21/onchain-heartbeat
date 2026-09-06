@@ -1,5 +1,8 @@
 import OpenAI from "openai";
 
+import { getNarratorIdentity } from "@/lib/ens";
+import { payForReading } from "@/lib/x402";
+
 const MODEL = "gpt-4o-mini";
 const MAX_TOKENS = 150;
 const MAX_HISTORY = 20; // ignore anything longer, the prompt doesn't need it
@@ -86,18 +89,19 @@ export async function POST(request: Request) {
     return Response.json({ error: "Bad payload" }, { status: 400 });
   }
 
-  // ─── x402 payment gate goes here (phase 4) ───────────────────────────────
-  // Charge for the narration before spending a token on it, and 402 out if
-  // the payment header is missing or unsettled. Nothing below needs to change.
-
-  // ─── ENS identity lookup goes here (phase 4) ─────────────────────────────
-  // Resolve the narrator's name, then pass it into narrate() so the persona
-  // can introduce itself. Purely additive to the system prompt.
+  // ─── x402 payment gate (Hedera testnet) ──────────────────────────────────
+  // ─── ENS identity (Sepolia) ──────────────────────────────────────────────
+  // Both are additive: each resolves to a "didn't happen" value on failure and
+  // narration proceeds regardless. Run together since neither needs the other.
+  const [payment, narrator] = await Promise.all([
+    payForReading(new URL("/api/chain-data", request.url)),
+    getNarratorIdentity(),
+  ]);
 
   try {
     const narration = await narrate(reading);
     if (!narration) throw new Error("empty narration");
-    return Response.json({ narration });
+    return Response.json({ narration, narrator, payment });
   } catch (err) {
     // The client keeps showing its last narration, so a soft failure is fine.
     console.error("[narrate] LLM call failed:", err);

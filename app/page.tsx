@@ -13,7 +13,10 @@ const useActivity = SOURCE === "mock" ? useMockActivity : useChainActivity;
 
 export default function Home() {
   const { activityLevel, label } = useActivity();
-  const { narration, isLoading } = useNarration({ activityLevel, label });
+  const { narration, narrator, payment, isLoading } = useNarration({
+    activityLevel,
+    label,
+  });
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-3">
@@ -25,7 +28,12 @@ export default function Home() {
       <p className="font-mono text-xs text-white/30">
         {SOURCE} · activityLevel {activityLevel}
       </p>
-      <NarrationBox narration={narration} isLoading={isLoading} />
+      <NarrationBox
+        narration={narration}
+        narrator={narrator}
+        payment={payment}
+        isLoading={isLoading}
+      />
     </main>
   );
 }

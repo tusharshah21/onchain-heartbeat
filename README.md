@@ -34,3 +34,21 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Data source
+
+The pulse is driven by live Base mainnet gas usage, polled from the public RPC
+every 6s (no API key). To fall back to the mock random walk — e.g. if the RPC
+is flaky during a demo — create `.env.local`:
+
+```
+NEXT_PUBLIC_DATA_SOURCE=mock
+```
+
+and restart. Override the endpoint with `NEXT_PUBLIC_RPC_URL`. The current
+source is shown in the small debug line under the pulse.
+
+Tuning knobs for how hard the pulse beats: `QUIET_GAS` / `BUSY_GAS` in
+`hooks/activity.ts`.
+
+Run the scale's self-check with `npm test`.

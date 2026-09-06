@@ -1,10 +1,16 @@
 "use client";
 
 import PulseVisual from "@/components/PulseVisual";
+import { useChainActivity } from "@/hooks/useChainActivity";
 import { useMockActivity } from "@/hooks/useMockActivity";
 
+// Demo-day escape hatch: set NEXT_PUBLIC_DATA_SOURCE=mock in .env.local
+// (then restart dev / rebuild) to fall back to the random walk.
+const SOURCE = process.env.NEXT_PUBLIC_DATA_SOURCE === "mock" ? "mock" : "base";
+const useActivity = SOURCE === "mock" ? useMockActivity : useChainActivity;
+
 export default function Home() {
-  const { activityLevel, label } = useMockActivity();
+  const { activityLevel, label } = useActivity();
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-3">
@@ -14,7 +20,7 @@ export default function Home() {
         {label}
       </p>
       <p className="font-mono text-xs text-white/30">
-        activityLevel {activityLevel}
+        {SOURCE} · activityLevel {activityLevel}
       </p>
     </main>
   );

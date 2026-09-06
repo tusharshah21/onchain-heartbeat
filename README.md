@@ -37,11 +37,11 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## Narrator
 
-`/api/narrate` calls Claude to commentate on the current reading. It needs a
+`/api/narrate` calls OpenAI to commentate on the current reading. It needs a
 key in `.env.local` (gitignored):
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
 ```
 
 Without it the route returns 502 and the panel keeps whatever it last said.

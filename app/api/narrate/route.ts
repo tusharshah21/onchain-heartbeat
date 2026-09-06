@@ -1,8 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
-// Previous-generation Sonnet, as specified. claude-sonnet-5 is the current
-// equivalent and is both cheaper and stronger if you want to switch.
-const MODEL = "claude-sonnet-4-6";
+const MODEL = "gpt-4o-mini";
 const MAX_TOKENS = 150;
 const MAX_HISTORY = 20; // ignore anything longer, the prompt doesn't need it
 
@@ -53,18 +51,17 @@ function describeTrend({ activityLevel, label, recentValues }: NarrateRequest) {
 }
 
 async function narrate(reading: NarrateRequest) {
-  const client = new Anthropic();
-  const response = await client.messages.create({
+  // Reads OPENAI_API_KEY from the environment.
+  const client = new OpenAI();
+  const response = await client.chat.completions.create({
     model: MODEL,
-    max_tokens: MAX_TOKENS,
-    system: SYSTEM,
-    messages: [{ role: "user", content: describeTrend(reading) }],
+    max_completion_tokens: MAX_TOKENS,
+    messages: [
+      { role: "system", content: SYSTEM },
+      { role: "user", content: describeTrend(reading) },
+    ],
   });
-  return response.content
-    .filter((block) => block.type === "text")
-    .map((block) => block.text)
-    .join("")
-    .trim();
+  return response.choices[0]?.message?.content?.trim() ?? "";
 }
 
 export async function POST(request: Request) {
@@ -88,7 +85,7 @@ export async function POST(request: Request) {
   } catch (err) {
     // The client keeps showing its last narration, so a soft failure is fine.
     console.error("[narrate] LLM call failed:", err);
-    const status = err instanceof Anthropic.APIError ? err.status : 502;
+    const status = err instanceof OpenAI.APIError ? err.status : 502;
     const message = err instanceof Error ? err.message : "Unknown error";
     return Response.json({ error: message }, { status: status ?? 502 });
   }

@@ -17,12 +17,17 @@ export const PRICE_HBAR = "0.001";
 // cap regardless.
 const MAX_TINYBARS_PER_PAYMENT = "1000000"; // 0.01 HBAR
 
-// The Hedera x402 scheme has the facilitator pay gas and submit the signed
-// transfer, so this account id has to match the live facilitator's.
-// Check with: curl -s https://x402.org/facilitator/supported
+// Blocky402 (BlockyDevs), the facilitator the Hedera agentic-payments track
+// requires. Its testnet host is separate from the mainnet one, and it is a
+// different service from Coinbase's x402.org facilitator — same protocol,
+// different operator and a different fee payer account.
+//
+// The Hedera scheme has the facilitator submit the signed transfer and pay gas,
+// so FEE_PAYER must match whatever the live facilitator advertises:
+//   curl -s https://api.testnet.blocky402.com/supported
 export const FACILITATOR_URL =
-  process.env.X402_FACILITATOR_URL ?? "https://x402.org/facilitator";
-export const FEE_PAYER = process.env.X402_FEE_PAYER ?? "0.0.9185802";
+  process.env.X402_FACILITATOR_URL ?? "https://api.testnet.blocky402.com";
+export const FEE_PAYER = process.env.X402_FEE_PAYER ?? "0.0.7162784";
 
 export const PAY_TO = process.env.HEDERA_PAY_TO;
 const PAYER_ID = process.env.HEDERA_ACCOUNT_ID;

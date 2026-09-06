@@ -66,14 +66,24 @@ HEDERA_PRIVATE_KEY=302e0201...    # payer's DER private key
 HEDERA_PAY_TO=0.0.yyyyyyy         # recipient (the data provider)
 ```
 
-The facilitator pays gas, so the payer only needs HBAR for the payments
-themselves. Confirm the fee payer account still matches with:
+Settlement goes through **Blocky402** (BlockyDevs), which the Hedera agentic
+payments track requires — a different operator from Coinbase's x402.org
+facilitator, same protocol. Its testnet host is separate from its mainnet one:
 
 ```
-curl -s https://x402.org/facilitator/supported
+https://api.testnet.blocky402.com     hedera:testnet, fee payer 0.0.7162784
+https://api.blocky402.com             hedera:mainnet, fee payer 0.0.10571514
 ```
 
-Override with `X402_FEE_PAYER` / `X402_FACILITATOR_URL` if it has changed.
+The facilitator submits the transfer and pays gas, so the payer only needs HBAR
+for the payments themselves, and `X402_FEE_PAYER` must match whatever the live
+facilitator advertises:
+
+```
+curl -s https://api.testnet.blocky402.com/supported
+```
+
+Override both with `X402_FACILITATOR_URL` / `X402_FEE_PAYER`.
 
 ### ENS identity
 

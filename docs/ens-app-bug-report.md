@@ -40,6 +40,19 @@ Four variants of the same call, simulated with `eth_call`. **No private key and 
 | new salt + original init payload | **REVERT** |
 | new salt + **empty** init payload | OK — returns a proxy address |
 
+```mermaid
+flowchart TD
+    A["deployProxy(implementation, salt, data)"] --> B{"is data empty?"}
+    B -->|yes| C["proxy deployed<br/>returns address, OK"]
+    B -->|no| D["call initialize payload<br/>selector 0x7058b559"]
+    D --> E{"does the implementation<br/>expose that selector?"}
+    E -->|"no (this is the bug)"| F["bare revert, no reason data"]
+    E -->|yes| G["proxy deployed and initialised"]
+
+    style F fill:#5a1b1b,stroke:#b04141,color:#fff
+    style C fill:#1b4332,stroke:#40916c,color:#fff
+```
+
 The deployment succeeds with either salt and fails **only when the init payload is attached**. That rules out:
 
 - a CREATE2 salt collision (a fresh random salt reverts identically)

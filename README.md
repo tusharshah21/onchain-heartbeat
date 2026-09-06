@@ -35,23 +35,41 @@ The app runs with **no keys at all**. Without them the narrator stays silent, th
 
 Three layers with one seam between each. The rule the codebase enforces is that **the visual never knows where its number came from**.
 
+```mermaid
+flowchart LR
+  subgraph DATA["Data layer"]
+    chain["useChainActivity<br/>Base RPC, 6s"]
+    mock["useMockActivity<br/>random walk, 3s"]
+  end
+
+  reading(["activityLevel 0-100 + label"])
+
+  subgraph UI["UI layer"]
+    pulse["PulseVisual<br/>level to CSS vars"]
+    box["NarrationBox<br/>line + identity + receipt"]
+  end
+
+  subgraph AI["AI layer"]
+    hook["useNarration<br/>8-reading buffer, 18s"]
+    route["POST /api/narrate"]
+    pay["payForReading<br/>Hedera x402"]
+    ens["getNarratorIdentity<br/>Sepolia ENS"]
+    llm["OpenAI gpt-4o-mini"]
+  end
+
+  chain --> reading
+  mock --> reading
+  reading --> pulse
+  reading --> hook
+  hook --> route
+  route --> pay
+  route --> ens
+  route --> llm
+  route --> box
 ```
-  DATA                     AI                       UI
-  ------------------       ------------------       ----------------------
-  useChainActivity   -+                        +--  PulseVisual
-    Base RPC, 6s      |                        |      activityLevel -> CSS vars
-                      +-> { activityLevel,  ---+
-  useMockActivity     |      label }           +--  NarrationBox
-    random walk, 3s  -+          |                    narration + receipt
-                                 v
-                           useNarration
-                             8-reading buffer, 18s
-                                 v
-                           POST /api/narrate
-                             |-> payForReading()      GET /api/chain-data -> 402 -> settle
-                             |-> getNarratorIdentity() Sepolia
-                             +-> OpenAI gpt-4o-mini
-```
+
+The seam is `reading`: everything left of it can be swapped without touching
+anything right of it.
 
 **Data layer.** `hooks/useChainActivity.ts` polls one Base block header every 6s and normalises `gasUsed` onto 0-100. Thresholds in `hooks/activity.ts` came from sampling 50 consecutive blocks — p10 18.9M, p50 26.5M, p90 41.2M gas — so 12M-45M spans quiet to busy. `useMockActivity` returns the identical shape, which is the whole point: either can drive the page and `PulseVisual.tsx` never changes.
 
@@ -64,6 +82,26 @@ Three layers with one seam between each. The rule the codebase enforces is that 
 ## Hedera x402 payments
 
 `/api/chain-data` is a real metered resource guarded by `@x402/next`. Before each narration the agent buys it: the GET returns `402` with payment requirements, the agent signs an HBAR transfer, **Blocky402** settles it on Hedera testnet, and the retry returns the data. 0.001 HBAR per narration, charged per call rather than batched — one payment per line is the clearer thing to point at, and 18s leaves ample room for the two round trips.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Agent<br/>(/api/narrate)
+    participant R as Resource<br/>(/api/chain-data)
+    participant F as Blocky402<br/>facilitator
+    participant H as Hedera testnet
+
+    A->>R: GET, no payment
+    R-->>A: 402 + payment requirements<br/>(0.001 HBAR, payTo, feePayer)
+    A->>A: sign HBAR transfer<br/>(spend cap 0.01 HBAR)
+    A->>R: GET + payment-signature
+    R->>F: verify then settle
+    F->>H: submit transfer, pay gas
+    H-->>F: SUCCESS + tx id
+    F-->>R: settled
+    R-->>A: 200 + payment-response
+    A->>A: narrate, attach receipt
+```
 
 Settlement goes through Blocky402 (BlockyDevs), as the agentic-payments track requires. It is a different operator from Coinbase's x402.org facilitator — same protocol, different host, and a different fee payer account:
 

@@ -11,6 +11,11 @@ export const NETWORK = "hedera:testnet" as const;
 export const HBAR = "0.0.0"; // native HBAR, amounts are in tinybars
 export const PRICE_TINYBARS = "100000"; // 0.001 HBAR per narration
 export const PRICE_HBAR = "0.001";
+// Hard ceiling for a single automated payment. HBAR is not one of the client's
+// recognised default assets, so without an allowedAssets entry every payment is
+// rejected before it is signed — and an agent paying on a timer should have a
+// cap regardless.
+const MAX_TINYBARS_PER_PAYMENT = "1000000"; // 0.01 HBAR
 
 // The Hedera x402 scheme has the facilitator pay gas and submit the signed
 // transfer, so this account id has to match the live facilitator's.
@@ -41,17 +46,42 @@ export type PaymentReceipt = {
   explorerUrl?: string;
 };
 
+/**
+ * The portal hands out ECDSA keys as raw hex and ED25519 keys DER-encoded, and
+ * PrivateKey.fromString() guesses ED25519 for bare hex — which silently yields
+ * the wrong public key and a signature the network rejects. So pick explicitly,
+ * and say which was picked.
+ */
+function parsePayerKey(raw: string) {
+  const key = raw.trim();
+  const isDer = key.replace(/^0x/, "").toLowerCase().startsWith("30");
+  const parsed = isDer
+    ? PrivateKey.fromStringDer(key)
+    : PrivateKey.fromStringECDSA(key);
+  console.log(`[x402] payer key parsed as ${isDer ? "DER" : "raw-hex ECDSA"}`);
+  return parsed;
+}
+
 let payingFetch: typeof fetch | null = null;
 
 function getPayingFetch() {
   if (payingFetch) return payingFetch;
   const signer = createClientHederaSigner(
     PAYER_ID!,
-    PrivateKey.fromString(PAYER_KEY!),
+    parsePayerKey(PAYER_KEY!),
     { network: NETWORK },
   );
   payingFetch = wrapFetchWithPaymentFromConfig(fetch, {
     schemes: [{ network: NETWORK, client: new ExactHederaScheme(signer) }],
+    spendControls: {
+      allowedAssets: [
+        {
+          network: NETWORK,
+          asset: HBAR,
+          maxAmountPerPayment: MAX_TINYBARS_PER_PAYMENT,
+        },
+      ],
+    },
   }) as typeof fetch;
   return payingFetch;
 }
@@ -82,8 +112,15 @@ export async function payForReading(resourceUrl: URL): Promise<PaymentReceipt> {
     });
     if (!res.ok) throw new Error(`resource returned HTTP ${res.status}`);
 
-    const header = res.headers.get("X-PAYMENT-RESPONSE");
-    if (!header) throw new Error("no X-PAYMENT-RESPONSE header on the paid response");
+    // v2 names the settlement header `payment-response`; `X-PAYMENT-RESPONSE`
+    // is the v1 spelling, kept as a fallback.
+    const header =
+      res.headers.get("payment-response") ?? res.headers.get("X-PAYMENT-RESPONSE");
+    if (!header) {
+      throw new Error(
+        `paid response carried no settlement header (saw: ${[...res.headers.keys()].join(", ")})`,
+      );
+    }
 
     const settlement = decodePaymentResponseHeader(header);
     if (!settlement.success) {

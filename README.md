@@ -35,11 +35,24 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
+## Narrator
+
+`/api/narrate` calls Claude to commentate on the current reading. It needs a
+key in `.env.local` (gitignored):
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Without it the route returns 502 and the panel keeps whatever it last said.
+Model and prompt are at the top of `app/api/narrate/route.ts`; cadence and
+buffer size at the top of `hooks/useNarration.ts`.
+
 ## Data source
 
 The pulse is driven by live Base mainnet gas usage, polled from the public RPC
-every 6s (no API key). To fall back to the mock random walk — e.g. if the RPC
-is flaky during a demo — create `.env.local`:
+every 6s (no API key). To fall back to the mock random walk â€” e.g. if the RPC
+is flaky during a demo â€” create `.env.local`:
 
 ```
 NEXT_PUBLIC_DATA_SOURCE=mock

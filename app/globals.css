@@ -79,3 +79,26 @@ body {
     animation: none;
   }
 }
+
+/* --- Narration panel --- */
+
+.narration-line {
+  animation: narration-fade 700ms ease-out;
+}
+
+@keyframes narration-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .narration-line {
+    animation: none;
+  }
+}

@@ -82,8 +82,16 @@ NARRATOR_ENS_NAME=onchain-heartbeat.eth   # default
 SEPOLIA_RPC_URL=https://...               # optional, viem's public RPC otherwise
 ```
 
-Resolved against Sepolia via viem's universal resolver and cached for 10
-minutes. Until the name is registered the UI shows it as `(unregistered)`.
+Resolved on Sepolia against the **ETHOnline 2026 ENSv2 deployment**
+(`UpgradableUniversalResolverProxy` at `0xd26f2040d083af1cd2962ba303f4bea0c4faf142`),
+overriding the address viem ships for Sepolia. Cached 10 minutes on success,
+1 minute on failure.
+
+That deployment is a separate namespace: names in the mainnet-lineage Sepolia
+registry do not resolve through it, and vice versa. `nick.eth` returns a
+resolver under viem's default address and `0x0` under this one. So
+`onchain-heartbeat.eth` has to be registered **in the hackathon deployment** —
+registering it through the ordinary Sepolia flow will not make it resolve here.
 
 ## Data source
 

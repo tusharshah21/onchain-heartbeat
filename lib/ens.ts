@@ -16,14 +16,28 @@ export type NarratorIdentity = {
   resolved: boolean;
 };
 
-const client = createPublicClient({
-  chain: sepolia,
+// ETHOnline 2026 ENSv2 deployment. viem ships mainnet-lineage Universal
+// Resolver addresses for Sepolia, which point at a different deployment, so the
+// address is overridden rather than inherited.
+export const HACKATHON_UNIVERSAL_RESOLVER =
+  "0xd26f2040d083af1cd2962ba303f4bea0c4faf142" as const;
+
+export const hackathonSepolia = {
+  ...sepolia,
+  contracts: {
+    ...sepolia.contracts,
+    ensUniversalResolver: { address: HACKATHON_UNIVERSAL_RESOLVER },
+  },
+} as const;
+
+export const ensClient = createPublicClient({
+  chain: hackathonSepolia,
   transport: http(process.env.SEPOLIA_RPC_URL),
 });
 
 let cache: { until: number; value: NarratorIdentity } | null = null;
 
-/** Resolves the narrator's ENS name on Sepolia. Never throws. */
+/** Resolves the narrator's ENS name via the ETHOnline deployment. Never throws. */
 export async function getNarratorIdentity(): Promise<NarratorIdentity> {
   if (cache && Date.now() < cache.until) return cache.value;
 
@@ -35,15 +49,19 @@ export async function getNarratorIdentity(): Promise<NarratorIdentity> {
   let ttl = FAIL_TTL_MS;
 
   try {
-    const address = await client.getEnsAddress({
+    const address = await ensClient.getEnsAddress({
       name: normalize(NARRATOR_ENS_NAME),
     });
     value = { name: NARRATOR_ENS_NAME, address, resolved: address !== null };
     if (address) {
       ttl = OK_TTL_MS;
-      console.log(`[ens] ${NARRATOR_ENS_NAME} resolves to ${address} on Sepolia`);
+      console.log(
+        `[ens] ${NARRATOR_ENS_NAME} resolves to ${address} via the ETHOnline resolver`,
+      );
     } else {
-      console.log(`[ens] ${NARRATOR_ENS_NAME} is not registered on Sepolia yet`);
+      console.log(
+        `[ens] ${NARRATOR_ENS_NAME} has no record in the ETHOnline ENSv2 deployment yet`,
+      );
     }
   } catch (err) {
     console.error("[ens] lookup failed, showing the name unresolved:", err);

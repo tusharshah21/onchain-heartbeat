@@ -17,6 +17,16 @@ Given the current activity reading and the recent trend, write ONE or TWO short 
 - Never invent specifics you were not given: no token names, no dollar amounts, no block numbers, no wallet counts.
 - Under 30 words. No preamble, no quotation marks, no emoji. Output only the line itself.`;
 
+// Rotated per call so the model can't settle into one opening template.
+// This lives in the user message rather than SYSTEM precisely because it has
+// to vary call to call.
+const OPENERS = [
+  "Open on the number or percentage move itself.",
+  "Open on the pace or momentum, not the raw number.",
+  "Open on what traders and users are doing.",
+  "Open on the chain's overall mood or feel.",
+];
+
 type NarrateRequest = {
   activityLevel: number;
   label: string;
@@ -56,6 +66,7 @@ function describeTrend({ activityLevel, label, recentValues }: NarrateRequest) {
 }
 
 async function narrate(reading: NarrateRequest) {
+  const opener = OPENERS[Math.floor(Math.random() * OPENERS.length)];
   // Reads OPENAI_API_KEY from the environment.
   const client = new OpenAI();
   const response = await client.chat.completions.create({
@@ -63,7 +74,7 @@ async function narrate(reading: NarrateRequest) {
     max_completion_tokens: MAX_TOKENS,
     messages: [
       { role: "system", content: SYSTEM },
-      { role: "user", content: describeTrend(reading) },
+      { role: "user", content: `${describeTrend(reading)}\n\n${opener}` },
     ],
   });
   return response.choices[0]?.message?.content?.trim() ?? "";

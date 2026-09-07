@@ -144,19 +144,9 @@ The Universal Resolver address viem ships for Sepolia is overridden with the hac
 ensUniversalResolver: { address: "0xd26f2040d083af1cd2962ba303f4bea0c4faf142" }
 ```
 
-Verified by resolving the same names through both deployments at the same block, which confirms the override reaches a genuinely different namespace rather than silently falling back:
-
-| name | viem default UR | hackathon UR |
-|---|---|---|
-| `nick.eth` | `0xb8c2C29e...67d5` | `(null)` |
-| `vitalik.eth` | `0xd8dA6BF2...6045` | `(null)` |
-| `onchain-heartbeat.eth` | `(null)` | `(null)` |
-
-`nick.eth` has a resolver record under the default address and `0x0` under the hackathon one — two separate registries, not two views of one.
+This is a genuinely separate namespace, not another view of the same registry: `nick.eth` has a resolver record under viem's default address and `0x0` under the hackathon one. The resolution table below shows the inversion.
 
 That also means an earlier "resolver path proven via nick.eth" check was **invalid** under this deployment and has been retracted. A name must be registered in the hackathon registry to resolve here; registering through app.ens.domains does nothing for it.
-
-Mechanically the override is sound: the proxy holds a real contract, viem's Universal Resolver ABI is compatible with it, and lookups return a clean zero-address "no record" instead of reverting.
 
 ### Registered and resolving
 

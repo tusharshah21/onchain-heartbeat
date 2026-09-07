@@ -158,26 +158,53 @@ That also means an earlier "resolver path proven via nick.eth" check was **inval
 
 Mechanically the override is sound: the proxy holds a real contract, viem's Universal Resolver ABI is compatible with it, and lookups return a clean zero-address "no record" instead of reverting.
 
-### Blocked
+### Registered and resolving
 
-`onchain-heartbeat.eth` is **not registered**, so the UI shows `unregistered`. This is not a gap in this codebase — the hackathon's own ENS app cannot complete the registration.
+`onchain-heartbeat.eth` is registered on the hackathon deployment and resolves
+to the narrator's wallet, so the UI shows it as verified.
 
-The app builds a `deployProxy` transaction whose inner initialize payload the implementation does not accept. Simulated with `eth_call` from the registrant's own funded wallet, four variants of the same call:
+| name | viem default UR | hackathon UR |
+|---|---|---|
+| `onchain-heartbeat.eth` | `(null)` | `0xf866683E...97d4` |
+| `nick.eth` | `0xb8c2C29e...67d5` | `(null)` |
+| `vitalik.eth` | `0xd8dA6BF2...6045` | `(null)` |
 
-| variant | result |
-|---|---|
-| original salt + original init payload | **revert** |
-| original salt + **empty** init payload | ok, returns proxy `0x39962d7e...1634` |
-| new salt + original init payload | **revert** |
-| new salt + empty init payload | ok, returns proxy `0x68a9bd8c...ce87` |
+Our name resolves only through the hackathon resolver and the mainnet-lineage
+names only through viem's default one. That inversion is the proof it is
+genuinely the hackathon deployment answering, not a fallback.
 
-The deployment succeeds with either salt and fails only when the init payload is attached, so it is not a CREATE2 collision, not the wallet, and not gas. The payload is `initialize(0xad1c4453...652d, 0x1111...1111, [])`, and the implementation at `0xa9d3814a...614e` exposes no `initialize(address,uint256,bytes[])` — a scan for that selector plus six other common initialize shapes found none of them. Its first argument is an EOA with no bytecode, and `0x1111...1111` reads as an unfilled placeholder.
+Registration had to bypass the hackathon's ENS app, which cannot complete it
+(see `docs/ens-app-bug-report.md`). `scripts/register-ens.mjs` and
+`scripts/deploy-resolver.mjs` go straight at the contracts:
 
-Separately, the app hardcodes a 21,000,000 gas limit that public RPCs reject. Fixing only that would buy a mined-and-reverted transaction instead of a rejected one.
+```
+approve      0x734b3e27ef7ecef7a0b78453bc441517f740a894e766ec7cb43e5fdd9132b643
+commit       0x5123a12b679ee508c850da8910e482a247194712ab7ecc589b4bfb4feeb106cb
+register     0xc8c7ff64f370aaa0c98a8e8c94ea74b7ae0eabc06a373f694ba20b3ea2ded649
+deployProxy  0xf1b8e5874570b0b3bbae9a90a18798a8f545e6fe94748d766fc55d9b6284fadf
+setResolver  0x07b66176b03c404fcfa4f67198d137a486cca7d9cbf5624fee571b10373252f6
+setAddress   0xfebbdb5ef2c7386eb803fa17e570ea4402cf103153f1c5d06062d8f8b312c827
+```
 
-`scripts/send-raw-tx.mjs` sends a prepared transaction with an explicit gas limit, simulating with `eth_call` first so a contract-level revert is reported rather than paid for. That guard is what caught this.
+Two things about ENSv2 that are easy to get wrong, both found the hard way:
 
-**Reported at:** not yet filed — see TODO.
+**Registration is commit-reveal and paid in ERC-20, not ETH.** `commit`, wait
+`MIN_COMMITMENT_AGE` (60s), then `register`. The fee is 8.000021 of the
+deployment's own test USDC (`0xcBFD80F7...6F05`) per year, pulled by the
+registrar, so it needs an `approve` first. The register transaction sends zero
+native ETH.
+
+**Records live on a per-name Permissioned Resolver proxy, keyed by DNS-encoded
+names.** Registering against the shared `PublicResolverV2` leaves you unable to
+write records - `canModifyName` returns false for every node derivation,
+because the resolver is addressed by `setAddress(bytes name, uint256 coinType,
+bytes value)`, not by namehash. Each name needs its own proxy, deployed through
+the factory with `initialize((address,uint256)[],bytes[])`.
+
+Every step is simulated before it is sent, and all three of the resolver steps
+are additionally checked together via `eth_simulateV1` against one projected
+post-state - which is the only way to verify `setAddress` against a proxy that
+does not exist yet.
 
 ---
 

@@ -1,31 +1,27 @@
 import {
-  createPublicClient, createWalletClient, encodeFunctionData, http, parseAbi, toHex,
+  createPublicClient, createWalletClient, encodeFunctionData, http, namehash, parseAbi,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
-import { packetToBytes } from "viem/ens";
 
-import { NARRATOR_ENS_NAME } from "./ens";
+import { getNarratorResolver, NARRATOR_ENS_NAME } from "./ens";
 
 /**
  * Gives a narration its own ENS name, e.g.
  *   activity-surges-81.posts.onchain-heartbeat.eth
  *
- * No subname registration is involved. Our Permissioned Resolver keys records
- * by DNS-encoded name rather than by node, and the Universal Resolver reaches
- * it by ENSIP-10 wildcard — so writing records for a subname is enough to make
- * it resolve. One transaction per post, no CCIP-Read gateway.
+ * Records go on the narrator's own resolver, keyed by namehash, so no subname
+ * registration is involved — writing the records is what makes the name
+ * addressable. One transaction per post.
  */
 
-const RESOLVER = (process.env.NARRATOR_RESOLVER ??
-  "0xB7BBb344Ce3E3E5Eae7fb604cE7F96B03DBA5BC2") as `0x${string}`;
 const RPC = process.env.SEPOLIA_RPC_URL ?? "https://ethereum-sepolia-rpc.publicnode.com";
 const KEY = process.env.SEPOLIA_PRIVATE_KEY;
 
 export type Post = { name: string; txHash: string };
 
 const resolverAbi = parseAbi([
-  "function setText(bytes name, string key, string value)",
+  "function setText(bytes32 node, string key, string value)",
   "function multicall(bytes[] data) returns (bytes[])",
 ]);
 
@@ -57,8 +53,14 @@ export async function publishNarration(opts: {
 }): Promise<Post | null> {
   if (!KEY) return null;
 
+  const resolver = await getNarratorResolver();
+  if (!resolver) {
+    console.error("[posts] the narrator's name has no resolver; cannot publish");
+    return null;
+  }
+
   const name = `${slugFor(opts.narration, opts.activityLevel)}.posts.${NARRATOR_ENS_NAME}`;
-  const dnsName = toHex(packetToBytes(name));
+  const node = namehash(name);
 
   // Everything a reader needs to check the claim: what was said, what was seen,
   // and which payment funded it.
@@ -75,18 +77,33 @@ export async function publishNarration(opts: {
     const pub = createPublicClient({ chain: sepolia, transport: http(RPC) });
     const wallet = createWalletClient({ account, chain: sepolia, transport: http(RPC) });
 
-    // One transaction for all three records.
     const calls = records.map(([key, value]) =>
-      encodeFunctionData({ abi: resolverAbi, functionName: "setText", args: [dnsName, key, value] }),
+      encodeFunctionData({ abi: resolverAbi, functionName: "setText", args: [node, key, value] }),
     );
-    const { request } = await pub.simulateContract({
-      account, address: RESOLVER, abi: resolverAbi,
-      functionName: "multicall", args: [calls],
-    });
 
-    // Sent, not awaited to completion: the name is known up front, and the
-    // narration should not wait on a Sepolia block.
-    const txHash = await wallet.writeContract(request);
+    // One transaction for all three records where the resolver supports it,
+    // otherwise fall back to writing them one at a time.
+    let txHash: string;
+    try {
+      const { request } = await pub.simulateContract({
+        account, address: resolver, abi: resolverAbi,
+        functionName: "multicall", args: [calls],
+      });
+      txHash = await wallet.writeContract(request);
+    } catch {
+      const { request } = await pub.simulateContract({
+        account, address: resolver, abi: resolverAbi, functionName: "setText",
+        args: [node, records[0][0], records[0][1]],
+      });
+      txHash = await wallet.writeContract(request);
+      for (const [key, value] of records.slice(1)) {
+        await wallet.sendTransaction({
+          to: resolver,
+          data: encodeFunctionData({ abi: resolverAbi, functionName: "setText", args: [node, key, value] }),
+        });
+      }
+    }
+
     console.log(`[posts] published ${name}  tx ${txHash}`);
     return { name, txHash };
   } catch (err) {

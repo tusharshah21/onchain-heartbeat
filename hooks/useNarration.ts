@@ -8,13 +8,24 @@ const BUFFER = 8; // readings kept for trend context
 
 type Reading = { activityLevel: number; label: string };
 
-export type Narrator = { name: string; address: string | null; resolved: boolean };
+export type Narrator = {
+  name: string;
+  address: string | null;
+  resolved: boolean;
+  description: string | null;
+  avatar: string | null;
+  url: string | null;
+};
 export type Payment = {
   paid: boolean;
   reason?: string;
   amountHbar?: string;
   txId?: string;
   explorerUrl?: string;
+  resource?: string;
+  network?: string;
+  facilitator?: string;
+  payer?: string;
 };
 
 /**
@@ -27,6 +38,7 @@ export function useNarration({ activityLevel, label }: Reading) {
   const [payment, setPayment] = useState<Payment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
+  const [recent, setRecent] = useState<number[]>([]);
   const latest = useRef<Reading>({ activityLevel, label });
   const history = useRef<number[]>([]);
 
@@ -35,6 +47,7 @@ export function useNarration({ activityLevel, label }: Reading) {
   useEffect(() => {
     latest.current = { activityLevel, label };
     history.current = [...history.current, activityLevel].slice(-BUFFER);
+    setRecent(history.current);
   }, [activityLevel, label]);
 
   useEffect(() => {
@@ -87,5 +100,5 @@ export function useNarration({ activityLevel, label }: Reading) {
     };
   }, []);
 
-  return { narration, narrator, payment, isLoading, isFetching };
+  return { narration, narrator, payment, recent, isLoading, isFetching };
 }

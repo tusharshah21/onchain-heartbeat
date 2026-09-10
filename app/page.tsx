@@ -2,6 +2,7 @@
 
 import NarrationBox from "@/components/NarrationBox";
 import PulseVisual from "@/components/PulseVisual";
+import Sparkline from "@/components/Sparkline";
 import { useChainActivity } from "@/hooks/useChainActivity";
 import { useMockActivity } from "@/hooks/useMockActivity";
 import { useNarration } from "@/hooks/useNarration";
@@ -14,10 +15,8 @@ const FEED_LABEL = SOURCE === "mock" ? "mock feed" : "base mainnet";
 
 export default function Home() {
   const { activityLevel, label } = useActivity();
-  const { narration, narrator, payment, isLoading, isFetching } = useNarration({
-    activityLevel,
-    label,
-  });
+  const { narration, narrator, payment, recent, isLoading, isFetching } =
+    useNarration({ activityLevel, label });
 
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-between overflow-hidden px-5 py-7">
@@ -32,19 +31,36 @@ export default function Home() {
       </header>
 
       <section className="z-10 flex flex-col items-center">
-        <PulseVisual activityLevel={activityLevel} />
+        {/* The reading sits in the middle of the pulse but outside the animated
+            element, so it stays put while the circle beats around it. */}
+        <div className="relative grid place-items-center">
+          <PulseVisual activityLevel={activityLevel} />
+          <div className="pointer-events-none absolute grid place-items-center text-center">
+            <span className="reading-scrim grid place-items-center rounded-full px-6 py-4">
+              <span className="block font-mono text-[clamp(2.2rem,7vw,3.6rem)] font-light leading-none tabular-nums text-white">
+                {activityLevel}
+              </span>
+              <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.28em] text-white/55">
+                of 100
+              </span>
+            </span>
+          </div>
+        </div>
+
         <p
           key={label}
           aria-live="polite"
-          className="narration-line mt-2 text-[clamp(1.35rem,3.4vw,2rem)] font-light tracking-wide text-white/90"
+          className="narration-line mt-1 text-[clamp(1.2rem,3vw,1.7rem)] font-light tracking-wide text-white/90"
         >
           {label}
         </p>
-        <p className="mt-2 font-mono text-[11px] tracking-wide text-white/25">
-          activity {String(activityLevel).padStart(2, "0")}
-          <span className="mx-2 text-white/15">/</span>
-          100
-        </p>
+
+        <div className="mt-1 flex flex-col items-center">
+          <Sparkline values={recent} />
+          <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-white/20">
+            last {Math.max(recent.length, 1)} readings
+          </span>
+        </div>
       </section>
 
       <NarrationBox

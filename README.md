@@ -81,7 +81,7 @@ anything right of it.
 
 ## Hedera x402 payments
 
-`/api/chain-data` is a real metered resource guarded by `@x402/next`. Before each narration the agent buys it: the GET returns `402` with payment requirements, the agent signs an HBAR transfer, **Blocky402** settles it on Hedera testnet, and the retry returns the data. 0.001 HBAR per narration, charged per call rather than batched — one payment per line is the clearer thing to point at, and 18s leaves ample room for the two round trips.
+`/api/chain-data` is a real metered resource guarded by `@x402/next`. Before each narration the agent buys it: the GET returns `402` with payment requirements, the agent signs an HBAR transfer, **Blocky402** settles it on Hedera testnet, and the retry returns the data. 0.001 HBAR per narration, charged **per call, never batched**. Batching would amortise the round trips, but it also breaks the thing x402 is for: one request, one payment, one receipt. Per-call keeps every narration individually auditable, and an 18s cadence leaves ample room for the two round trips.
 
 ```mermaid
 sequenceDiagram
@@ -109,6 +109,32 @@ Settlement goes through Blocky402 (BlockyDevs), as the agentic-payments track re
 https://api.testnet.blocky402.com    hedera:testnet, fee payer 0.0.7162784
 https://api.blocky402.com            hedera:mainnet, fee payer 0.0.10571514
 ```
+
+### Buy a reading yourself
+
+The endpoint is a real x402 resource, not a private arrangement between the app
+and itself — anyone with a funded Hedera testnet account can pay for one:
+
+```bash
+HEDERA_ACCOUNT_ID=0.0.xxxxx HEDERA_PRIVATE_KEY=0x... node scripts/buy-reading.mjs
+```
+
+```
+402 Payment Required
+  price      0.001 HBAR (100000 tinybars)
+  payTo      0.0.7117761
+  feePayer   0.0.7162784
+
+settled
+  payer      0.0.7055006
+  tx         0.0.7162784@1789026732.639649485
+
+reading
+{ "licensed": true, "issuedAt": "...", "source": "Base mainnet gas usage, ..." }
+```
+
+A plain `curl` cannot do this: x402 needs a signed payment, so the header has to
+come from a client holding a key. `URL=` points the script at a deployment.
 
 ### Verified settlement
 
@@ -163,6 +189,20 @@ Our name resolves only through the hackathon resolver and the mainnet-lineage
 names only through viem's default one. That inversion is the proof it is
 genuinely the hackathon deployment answering, not a fallback.
 
+The name carries a profile, not just an address — the narrator card in the UI
+is rendered from these records, so what you see is what the chain says about
+this agent:
+
+| record | value |
+|---|---|
+| `addr` | `0xf866683E...97d4` |
+| `description` | A live pulse of Base mainnet activity. I buy each reading over Hedera x402, then call the play-by-play. |
+| `avatar` | the repo's `app/icon.svg` |
+| `url` | this repository |
+
+Written with `scripts/set-ens-profile.mjs`. That means any consumer of a
+narration can resolve which agent produced it and look up who that agent is.
+
 Registration had to bypass the hackathon's ENS app, which cannot complete it
 (see `docs/ens-app-bug-report.md`). `scripts/register-ens.mjs` and
 `scripts/deploy-resolver.mjs` go straight at the contracts:
@@ -174,6 +214,9 @@ register     0xc8c7ff64f370aaa0c98a8e8c94ea74b7ae0eabc06a373f694ba20b3ea2ded649
 deployProxy  0xf1b8e5874570b0b3bbae9a90a18798a8f545e6fe94748d766fc55d9b6284fadf
 setResolver  0x07b66176b03c404fcfa4f67198d137a486cca7d9cbf5624fee571b10373252f6
 setAddress   0xfebbdb5ef2c7386eb803fa17e570ea4402cf103153f1c5d06062d8f8b312c827
+setText×3    0x157c1bbbbf7ebfc9a37bcfa8c21a3cdf2f8cbe30e27d933dfd9b89442538f7cd
+             0xc088c38c153cdd691c9840c50ce4db166c3dbb592a3e6ea6b81f64603c50bcc2
+             0x286b23fa8ce281c3d4d13d779a16a64375309058ba92fea4e23ab963d3716dd6
 ```
 
 Two things about ENSv2 that are easy to get wrong, both found the hard way:
@@ -234,5 +277,9 @@ lib/
   x402.ts                  the paying client
   ens.ts                   identity resolution
 scripts/
+  register-ens.mjs         commit-reveal registration, direct to contracts
+  deploy-resolver.mjs      per-name resolver proxy + address record
+  set-ens-profile.mjs      avatar / description / url text records
+  buy-reading.mjs          pay for one reading as a third party
   send-raw-tx.mjs          manual tx sender with simulation
 ```

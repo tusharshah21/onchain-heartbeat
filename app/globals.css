@@ -42,16 +42,32 @@ body {
   will-change: transform;
 }
 
+/* A ring rather than a disc: the centre stays dark so the reading printed over
+   it is legible while the rim carries the colour and the glow. */
 .pulse-core {
   background: radial-gradient(
-    circle at 50% 38%,
-    hsl(var(--hue) 100% 84%),
-    hsl(var(--hue) 95% 55%) 45%,
-    hsl(var(--hue) 92% 28%) 100%
+    circle,
+    hsl(var(--hue) 60% 5%) 0%,
+    hsl(var(--hue) 55% 7%) 44%,
+    hsl(var(--hue) 95% 50%) 60%,
+    hsl(var(--hue) 100% 80%) 70%,
+    hsl(var(--hue) 95% 45%) 86%,
+    hsl(var(--hue) 90% 22%) 100%
   );
   box-shadow:
-    0 0 70px hsl(var(--hue) 95% 55% / 0.5),
-    inset 0 0 50px hsl(var(--hue) 100% 82% / 0.3);
+    0 0 70px hsl(var(--hue) 95% 55% / 0.45),
+    inset 0 0 60px hsl(var(--hue) 100% 70% / 0.18);
+}
+
+/* Keeps the number readable whatever the ring is doing behind it. */
+.reading-scrim {
+  background: radial-gradient(
+    closest-side,
+    rgba(6, 7, 10, 0.82) 0%,
+    rgba(6, 7, 10, 0.55) 65%,
+    transparent 100%
+  );
+  text-shadow: 0 1px 14px rgba(6, 7, 10, 0.9);
 }
 
 .pulse-glow {

@@ -14,7 +14,13 @@ export type NarratorIdentity = {
   name: string;
   address: string | null;
   resolved: boolean;
+  /** ENS text records, so the name is a profile rather than a label. */
+  description: string | null;
+  avatar: string | null;
+  url: string | null;
 };
+
+const TEXT_KEYS = ["description", "avatar", "url"] as const;
 
 // ETHOnline 2026 ENSv2 deployment. viem ships mainnet-lineage Universal
 // Resolver addresses for Sepolia, which point at a different deployment, so the
@@ -45,18 +51,35 @@ export async function getNarratorIdentity(): Promise<NarratorIdentity> {
     name: NARRATOR_ENS_NAME,
     address: null,
     resolved: false,
+    description: null,
+    avatar: null,
+    url: null,
   };
   let ttl = FAIL_TTL_MS;
 
   try {
-    const address = await ensClient.getEnsAddress({
-      name: normalize(NARRATOR_ENS_NAME),
-    });
-    value = { name: NARRATOR_ENS_NAME, address, resolved: address !== null };
+    const name = normalize(NARRATOR_ENS_NAME);
+    // One round of lookups: the address plus the profile records.
+    const [address, ...texts] = await Promise.all([
+      ensClient.getEnsAddress({ name }),
+      ...TEXT_KEYS.map((key) =>
+        ensClient.getEnsText({ name, key }).catch(() => null),
+      ),
+    ]);
+    const [description, avatar, url] = texts;
+    value = {
+      name: NARRATOR_ENS_NAME,
+      address,
+      resolved: address !== null,
+      description,
+      avatar,
+      url,
+    };
     if (address) {
       ttl = OK_TTL_MS;
       console.log(
-        `[ens] ${NARRATOR_ENS_NAME} resolves to ${address} via the ETHOnline resolver`,
+        `[ens] ${NARRATOR_ENS_NAME} -> ${address} via the ETHOnline resolver` +
+          ` (records: ${TEXT_KEYS.filter((_, i) => texts[i]).join(", ") || "none"})`,
       );
     } else {
       console.log(

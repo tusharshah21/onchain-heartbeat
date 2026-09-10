@@ -49,6 +49,11 @@ export type PaymentReceipt = {
   amountHbar?: string;
   txId?: string;
   explorerUrl?: string;
+  /** Enough to render the trail: what was bought, who settled it, where. */
+  resource?: string;
+  network?: string;
+  facilitator?: string;
+  payer?: string;
 };
 
 /**
@@ -104,7 +109,7 @@ export async function payForReading(resourceUrl: URL): Promise<PaymentReceipt> {
     const reason =
       "payer not configured (set HEDERA_ACCOUNT_ID, HEDERA_PRIVATE_KEY, HEDERA_PAY_TO)";
     console.log(`[x402] skipped — ${reason}`);
-    return { paid: false, reason };
+    return { paid: false, reason, resource: resourceUrl.pathname };
   }
 
   try {
@@ -138,10 +143,19 @@ export async function payForReading(resourceUrl: URL): Promise<PaymentReceipt> {
       `[x402] PAID ${PRICE_HBAR} HBAR  payer=${settlement.payer ?? PAYER_ID}  tx=${txId}`,
     );
     console.log(`[x402] ${explorerUrl}`);
-    return { paid: true, amountHbar: PRICE_HBAR, txId, explorerUrl };
+    return {
+      paid: true,
+      amountHbar: PRICE_HBAR,
+      txId,
+      explorerUrl,
+      resource: resourceUrl.pathname,
+      network: NETWORK,
+      facilitator: new URL(FACILITATOR_URL).host,
+      payer: settlement.payer ?? PAYER_ID,
+    };
   } catch (err) {
     const reason = err instanceof Error ? err.message : "unknown error";
     console.error(`[x402] payment failed, narrating unpaid: ${reason}`);
-    return { paid: false, reason };
+    return { paid: false, reason, resource: resourceUrl.pathname };
   }
 }

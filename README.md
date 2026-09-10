@@ -4,7 +4,9 @@ A live visual pulse of blockchain activity, narrated by an AI commentator that p
 
 A circle beats in the middle of the screen. Its rhythm, amplitude and colour are driven by live Uniswap v3 swap flow on Base, read from a subgraph through The Graph — calm cyan with a slow swell when the chain is quiet, fast crimson thumping when it is busy. Every 18 seconds an agent buys a metered reading over Hedera x402, then narrates what just happened in one line of play-by-play commentary.
 
-Three things happen at once, and the UI shows all three: the chain's state, an agent paying for data, and that agent's onchain identity.
+Four things happen at once, and the UI shows all of them: indexed chain data,
+an agent paying for it, a narration of what it bought, and an onchain identity
+that signs the claim.
 
 ---
 
@@ -39,6 +41,7 @@ Three layers with one seam between each. The rule the codebase enforces is that 
 ```mermaid
 flowchart LR
   subgraph DATA["Data layer"]
+    feed["useGraphActivity<br/>The Graph, 15s"]
     chain["useChainActivity<br/>Base RPC, 6s"]
     mock["useMockActivity<br/>random walk, 3s"]
   end
@@ -56,8 +59,10 @@ flowchart LR
     pay["payForReading<br/>Hedera x402"]
     ens["getNarratorIdentity<br/>Sepolia ENS"]
     llm["OpenAI gpt-4o-mini"]
+    post["publishNarration<br/>an ENS subname per call"]
   end
 
+  feed --> reading
   chain --> reading
   mock --> reading
   reading --> pulse
@@ -66,11 +71,17 @@ flowchart LR
   route --> pay
   route --> ens
   route --> llm
+  route --> post
   route --> box
 ```
 
 The seam is `reading`: everything left of it can be swapped without touching
-anything right of it.
+anything right of it. It has been swapped three times — mock to RPC, RPC to
+The Graph, and one ENS deployment to another — and `PulseVisual.tsx` has never
+changed.
+
+`payForReading` buys the same subgraph reading the pulse runs on, so the
+payment purchases indexed data rather than a receipt.
 
 **Data layer — three interchangeable sources.** All return `{ activityLevel, label }`, so any of them can drive the page and `PulseVisual.tsx` never changes:
 
@@ -321,7 +332,8 @@ app/
   api/chain-data/route.ts  the x402-metered resource, same reading
 components/
   PulseVisual.tsx          0-100 -> CSS custom properties
-  NarrationBox.tsx         narration, identity, payment receipt
+  NarrationBox.tsx         narration, identity, payment trail
+  Sparkline.tsx            shape of the last few readings
 hooks/
   activity.ts              easing, labels, both normalisations (+ tests)
   useGraphActivity.ts      Uniswap swap flow via The Graph
@@ -332,6 +344,9 @@ lib/
   graph.ts                 the subgraph query and normalisation
   x402.ts                  the paying client
   ens.ts                   identity resolution
+  ens-posts.ts             a subname per narration
+docs/
+  ens-app-bug-report.md    the portal defect, with a keyless repro
 scripts/
   sample-graph.mjs         probe candidate subgraphs and schemas
   calibrate-graph.mjs      sample repeatedly to set thresholds

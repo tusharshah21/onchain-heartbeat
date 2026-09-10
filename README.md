@@ -160,9 +160,9 @@ The client sets a hard `maxAmountPerPayment` of 0.01 HBAR. An agent paying on a 
 
 ## ENS identity
 
-The narrator owns `onchain-heartbeat.eth` on the **ETHOnline 2026 ENSv2
-deployment** (Sepolia), and the name carries a profile rather than just an
-address:
+The narrator owns `onchain-heartbeat.eth` on the **dedicated ETHOnline 2026
+hackathon deployment** (the ENS docs' "Sepolia (ENSv2 Beta)" table), and the
+name carries a profile rather than just an address:
 
 | record | value |
 |---|---|
@@ -171,34 +171,44 @@ address:
 | `avatar` | the repo's `app/icon.svg` |
 | `url` | this repository |
 
-```
-registry   0xbdc85dd5b15d7ecb354cd7cb6f2c50b4f2c4f0e2
-resolver   0x7745211F67E01b7902f3B44bc4ADAa59CfBeA8dB   (provisioned at registration)
+viem ships mainnet-lineage Universal Resolver addresses for Sepolia, so the
+deployment's own is used instead:
+
+```ts
+ensUniversalResolver: { address: "0xd26f2040d083af1cd2962ba303f4bea0c4faf142" }
 ```
 
-Records are read straight from the registry and the name's resolver rather than
-through a Universal Resolver. The deployment gives every name its own resolver
-at registration, so `getResolver` already points at the right contract, and
-this keeps working when the Universal Resolver address changes.
+Resolution through that resolver, at one block:
+
+| name | viem default UR | hackathon UR |
+|---|---|---|
+| `onchain-heartbeat.eth` | `(null)` | `0xf866683E...97d4` |
+| `nick.eth` | `0xb8c2C29e...67d5` | `(null)` |
+| `vitalik.eth` | `0xd8dA6BF2...6045` | `(null)` |
+
+Our name resolves only through the hackathon resolver and the mainnet-lineage
+names only through viem's default one. That inversion is the proof it is
+genuinely the hackathon deployment answering, not a fallback.
 
 ### Every notable call gets its own name
 
 When the mood changes, the narrator publishes that call as a subname:
 
 ```
-traders-are-surging-77.posts.onchain-heartbeat.eth
-  description  Traders are surging in, activity climbing 71%...
-  activity     77
-  payment      0.0.7162784@1789048783.400117670
+a-drastic-drop-31.posts.onchain-heartbeat.eth
+  description  A drastic drop of 56% as activity dives...
+  activity     31
+  payment      0.0.7162784@1789051592.080380617
 ```
 
 Resolve any post name and you get the comment, the reading behind it, and the
 Hedera transaction that paid for it — so a claim can be traced back to the
 agent that made it and the data it bought.
 
-**No subname registration is involved.** Records live on the narrator's own
-resolver keyed by namehash, so writing them is what makes the name addressable.
-One transaction per post, no CCIP-Read gateway.
+**No subname registration is involved.** The name's Permissioned Resolver keys
+records by DNS-encoded name rather than by node, and the Universal Resolver
+reaches it by ENSIP-10 wildcard, so writing records is enough to make a subname
+resolve. One `multicall` per post, no CCIP-Read gateway.
 
 Publishing is on a change of label, not every beat — at an 18s cadence that
 would be ~200 transactions an hour and a feed nobody reads. This way the
@@ -207,24 +217,40 @@ subnames are the narrator's highlight reel.
 ### Registering without the portal
 
 The hackathon portal could not complete a registration when this was built, so
-`scripts/register-ens.mjs` goes straight at the contracts — commit-reveal,
-ERC-20 fee, then records. The portal has since been fixed and now provisions a
-resolver itself, which is the path in use.
+`scripts/register-ens.mjs` and `scripts/deploy-resolver.mjs` go straight at the
+contracts:
 
-`docs/ens-app-bug-report.md` documents the original defect: the app encoded
+```
+approve      0x734b3e27ef7ecef7a0b78453bc441517f740a894e766ec7cb43e5fdd9132b643
+commit       0x5123a12b679ee508c850da8910e482a247194712ab7ecc589b4bfb4feeb106cb
+register     0xc8c7ff64f370aaa0c98a8e8c94ea74b7ae0eabc06a373f694ba20b3ea2ded649
+deployProxy  0xf1b8e5874570b0b3bbae9a90a18798a8f545e6fe94748d766fc55d9b6284fadf
+setResolver  0x07b66176b03c404fcfa4f67198d137a486cca7d9cbf5624fee571b10373252f6
+setAddress   0xfebbdb5ef2c7386eb803fa17e570ea4402cf103153f1c5d06062d8f8b312c827
+setText x3   0x157c1bbb… 0xc088c38c… 0x286b23fa…
+```
+
+`docs/ens-app-bug-report.md` documents the defect: the app encoded
 `initialize`'s first argument as `address,uint256` where the implementation
 expects `(address,uint256)[]`, producing a selector that matched no function.
 
-Two things about ENSv2 worth knowing, both found the hard way:
+Three things about ENSv2 worth knowing, all found the hard way:
 
 **Registration is commit-reveal and paid in ERC-20, not ETH.** `commit`, wait
 `MIN_COMMITMENT_AGE` (60s), then `register`, with an `approve` first because the
-registrar pulls the fee. The register transaction sends zero native ETH.
+registrar pulls the fee — 8.000021 MockUSDC per year. The register transaction
+sends zero native ETH.
 
-**Resolver interfaces differ between deployments.** One keys records by
-DNS-encoded name (`setText(bytes,string,string)`), the other by namehash
-(`setText(bytes32,string,string)`). Reading `getResolver` and matching its
-interface is the portable approach; assuming either one is not.
+**Records live on a per-name resolver, not a shared one.** Registering against
+the shared `PublicResolverV2` leaves you unable to write records:
+`canModifyName` returns false for every node derivation.
+
+**There is more than one hackathon deployment in the wild.** The portal app
+resolves against an undocumented set (`ETHRegistrar 0xa88553f4…`,
+`registry 0xbdc85dd5…`) whose resolver keys records by namehash rather than by
+DNS-encoded name. The name is set up on that one too, but this app targets the
+documented deployment. `ENS_UNIVERSAL_RESOLVER` and `NARRATOR_RESOLVER` switch
+it if that changes.
 
 Every write is simulated before it is sent, and multi-step flows are checked
 together with `eth_simulateV1` against one projected post-state.

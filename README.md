@@ -203,6 +203,31 @@ this agent:
 Written with `scripts/set-ens-profile.mjs`. That means any consumer of a
 narration can resolve which agent produced it and look up who that agent is.
 
+### Every notable call gets its own name
+
+When the mood changes, the narrator publishes that call as a subname:
+
+```
+momentum-surges-as-84.posts.onchain-heartbeat.eth
+  description  Momentum surges as activity spikes 110%, traders diving in...
+  activity     84
+  payment      0.0.7162784@1789040613.825469940
+```
+
+Resolve any post name and you get the comment, the reading behind it, and the
+Hedera transaction that paid for it — so a claim can be traced back to the
+agent that made it and the data it bought.
+
+**No subname registration is involved.** The Permissioned Resolver keys records
+by DNS-encoded name rather than by node, and the Universal Resolver reaches it
+by ENSIP-10 wildcard, so writing records is enough to make a subname resolve.
+One transaction per post, all three records in a `multicall`, and no CCIP-Read
+gateway.
+
+Publishing is on a change of label, not every beat — at an 18s cadence that
+would be ~200 transactions an hour and a feed nobody reads. This way the
+subnames are the narrator's highlight reel.
+
 Registration had to bypass the hackathon's ENS app, which cannot complete it
 (see `docs/ens-app-bug-report.md`). `scripts/register-ens.mjs` and
 `scripts/deploy-resolver.mjs` go straight at the contracts:

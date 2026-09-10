@@ -15,7 +15,7 @@ const FEED_LABEL = SOURCE === "mock" ? "mock feed" : "base mainnet";
 
 export default function Home() {
   const { activityLevel, label } = useActivity();
-  const { narration, narrator, payment, recent, isLoading, isFetching } =
+  const { narration, narrator, payment, post, recent, isLoading, isFetching } =
     useNarration({ activityLevel, label });
 
   return (
@@ -67,6 +67,7 @@ export default function Home() {
         narration={narration}
         narrator={narrator}
         payment={payment}
+        post={post}
         isLoading={isLoading}
         isFetching={isFetching}
       />

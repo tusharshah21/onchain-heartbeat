@@ -16,6 +16,8 @@ export type Narrator = {
   avatar: string | null;
   url: string | null;
 };
+export type Post = { name: string; txHash: string };
+
 export type Payment = {
   paid: boolean;
   reason?: string;
@@ -39,6 +41,7 @@ export function useNarration({ activityLevel, label }: Reading) {
   const [isLoading, setIsLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
   const [recent, setRecent] = useState<number[]>([]);
+  const [post, setPost] = useState<Post | null>(null);
   const latest = useRef<Reading>({ activityLevel, label });
   const history = useRef<number[]>([]);
 
@@ -72,6 +75,8 @@ export function useNarration({ activityLevel, label }: Reading) {
         if (cancelled || typeof data.narration !== "string" || !data.narration) return;
         setNarration(data.narration);
         if (data.narrator) setNarrator(data.narrator);
+        // a beat only gets a name when the mood changes, so keep the last one
+        if (data.post) setPost(data.post);
         // Each narration is bought separately, so the receipt tracks the line.
         if (data.payment) {
           setPayment(data.payment);
@@ -100,5 +105,5 @@ export function useNarration({ activityLevel, label }: Reading) {
     };
   }, []);
 
-  return { narration, narrator, payment, recent, isLoading, isFetching };
+  return { narration, narrator, payment, post, recent, isLoading, isFetching };
 }

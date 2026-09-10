@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
-import type { Narrator, Payment } from "@/hooks/useNarration";
+import type { Narrator, Payment, Post } from "@/hooks/useNarration";
 
 /**
  * The narrator's ENS profile: avatar, name, description. Records come from the
@@ -92,12 +92,14 @@ export default function NarrationBox({
   narration,
   narrator,
   payment,
+  post,
   isLoading,
   isFetching,
 }: {
   narration: string;
   narrator: Narrator | null;
   payment: Payment | null;
+  post: Post | null;
   isLoading: boolean;
   isFetching: boolean;
 }) {
@@ -126,6 +128,16 @@ export default function NarrationBox({
           </p>
         )}
       </div>
+
+      {post && (
+        <p
+          className="mt-2 truncate font-mono text-[10px] text-white/30"
+          title={`Published as an ENS subname, tx ${post.txHash}`}
+        >
+          <span className="text-white/20">named </span>
+          <span className="text-white/50">{post.name}</span>
+        </p>
+      )}
 
       {payment && (
         <div className="mt-3 flex items-center gap-2 border-t border-white/[0.07] pt-3">

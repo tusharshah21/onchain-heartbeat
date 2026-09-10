@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 
 import { getNarratorIdentity } from "@/lib/ens";
+import { publishNarration, postsEnabled } from "@/lib/ens-posts";
 import { payForReading } from "@/lib/x402";
 
 const MODEL = "gpt-4o-mini";
@@ -29,6 +30,12 @@ const OPENERS = [
   "Open on what traders and users are doing.",
   "Open on the chain's overall mood or feel.",
 ];
+
+// Only notable calls get a name. Publishing every 18s beat would be ~200
+// transactions an hour and a feed nobody reads; publishing on a change of
+// mood gives the narrator a highlight reel. Module-level, so it resets with
+// the server - fine for a demo.
+let lastPublishedLabel: string | null = null;
 
 type NarrateRequest = {
   activityLevel: number;
@@ -101,7 +108,19 @@ export async function POST(request: Request) {
   try {
     const narration = await narrate(reading);
     if (!narration) throw new Error("empty narration");
-    return Response.json({ narration, narrator, payment });
+
+    // ─── name this call, if it is a change of mood ───────────────────────────
+    let post = null;
+    if (postsEnabled() && reading.label !== lastPublishedLabel) {
+      lastPublishedLabel = reading.label;
+      post = await publishNarration({
+        narration,
+        activityLevel: reading.activityLevel,
+        paymentTxId: payment.txId,
+      });
+    }
+
+    return Response.json({ narration, narrator, payment, post });
   } catch (err) {
     // The client keeps showing its last narration, so a soft failure is fine.
     // Detail stays in the server log rather than going to the browser, and the

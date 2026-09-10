@@ -2,7 +2,7 @@
 
 A live visual pulse of blockchain activity, narrated by an AI commentator that pays for its own data.
 
-A circle beats in the middle of the screen. Its rhythm, amplitude and colour are driven by real gas usage on Base mainnet — calm cyan with a slow swell when the chain is quiet, fast crimson thumping when it is busy. Every 18 seconds an agent buys a metered reading over Hedera x402, then narrates what just happened in one line of play-by-play commentary.
+A circle beats in the middle of the screen. Its rhythm, amplitude and colour are driven by live Uniswap v3 swap flow on Base, read from a subgraph through The Graph — calm cyan with a slow swell when the chain is quiet, fast crimson thumping when it is busy. Every 18 seconds an agent buys a metered reading over Hedera x402, then narrates what just happened in one line of play-by-play commentary.
 
 Three things happen at once, and the UI shows all three: the chain's state, an agent paying for data, and that agent's onchain identity.
 
@@ -25,7 +25,8 @@ The app runs with **no keys at all**. Without them the narrator stays silent, th
 | `HEDERA_ACCOUNT_ID` / `HEDERA_PRIVATE_KEY` / `HEDERA_PAY_TO` | payments | resource served free, `unpaid` chip |
 | `NARRATOR_ENS_NAME` | identity | defaults to `onchain-heartbeat.eth` |
 | `SEPOLIA_RPC_URL` | identity | viem's public Sepolia RPC |
-| `NEXT_PUBLIC_DATA_SOURCE` | data | live Base data; set to `mock` for a random walk |
+| `GRAPH_API_KEY` | data | pulse falls back to `/api/activity` 503; set `NEXT_PUBLIC_DATA_SOURCE=rpc` |
+| `NEXT_PUBLIC_DATA_SOURCE` | data | `graph` (default), `rpc`, or `mock` |
 | `NEXT_PUBLIC_RPC_URL` | data | `https://mainnet.base.org` |
 | `X402_FACILITATOR_URL` / `X402_FEE_PAYER` | payments | Blocky402 testnet defaults |
 
@@ -71,11 +72,46 @@ flowchart LR
 The seam is `reading`: everything left of it can be swapped without touching
 anything right of it.
 
-**Data layer.** `hooks/useChainActivity.ts` polls one Base block header every 6s and normalises `gasUsed` onto 0-100. Thresholds in `hooks/activity.ts` came from sampling 50 consecutive blocks — p10 18.9M, p50 26.5M, p90 41.2M gas — so 12M-45M spans quiet to busy. `useMockActivity` returns the identical shape, which is the whole point: either can drive the page and `PulseVisual.tsx` never changes.
+**Data layer — three interchangeable sources.** All return `{ activityLevel, label }`, so any of them can drive the page and `PulseVisual.tsx` never changes:
+
+| source | what it reads | cadence |
+|---|---|---|
+| `useGraphActivity` (default) | Uniswap v3 swaps on Base, via a Messari standardized subgraph on The Graph | 15s |
+| `useChainActivity` | `gasUsed` from one Base block header, public RPC | 6s |
+| `useMockActivity` | a random walk, for demos when a feed is unavailable | 3s |
+
+Thresholds in `hooks/activity.ts` are calibrated from sampled data, never guessed. Swap flow: 341 / 405 / 577 / 652 swaps-per-minute at p10 / p50 / p90 / max, so 150-600 spans quiet to busy — with the floor set below the sample minimum because flow was observed at 246/min shortly afterwards, and a two-minute sample understates the real range. Gas: p10 18.9M, p50 26.5M, p90 41.2M across 50 consecutive blocks, so 12M-45M.
 
 **AI layer.** `app/api/narrate/route.ts` takes a reading plus the recent window, computes the delta in points and percent, and asks for one line of commentary. The prompt bans invented specifics (token names, dollar amounts, wallet counts) because none of that is in the payload. A rotating opening directive is appended per call — without it the model converges on a single sentence template within a few narrations.
 
 **UI layer.** `PulseVisual` maps 0-100 onto three CSS custom properties (`--beat`, `--amp`, `--hue`) and lets CSS keyframes do the animating, so the heartbeat runs on the compositor rather than in JS. `@property` registrations let amplitude and hue ease between readings instead of snapping.
+
+---
+
+## The Graph
+
+The pulse runs on indexed data, not raw RPC. `lib/graph.ts` queries a Messari
+**standardized** subgraph for Uniswap v3 on Base through The Graph's gateway,
+derives swaps-per-minute from the timestamp span of the last 500 swaps, and
+normalises that onto the 0-100 scale.
+
+```
+[graph] 246 swaps/min ($57,912/min) -> level 11  block 51134930
+```
+
+Two details that matter:
+
+**A wider window is not cosmetic.** With 100 swaps the span is a handful of
+integer seconds, so the derived rate quantises into coarse jumps — 429, 600,
+750, 1500. At 500 swaps the span is around a minute and the signal is smooth.
+
+**The key never reaches the browser.** The client polls `/api/activity`, which
+holds the key server-side. One query per 15s poll, against a free tier of
+100,000 queries a month.
+
+The metered resource the agent buys is the same reading, so the payment
+actually purchases indexed data rather than a receipt — which is what ties this
+to the payment layer below.
 
 ---
 
@@ -263,7 +299,8 @@ Every external dependency degrades instead of breaking. Verified by running the 
 
 | broken thing | what happens |
 |---|---|
-| Base RPC unreachable | pulse holds its last rate, logs `[chain]`, keeps beating |
+| The Graph unreachable | pulse holds its last rate, logs `[graph]`, keeps beating |
+| Base RPC unreachable | same, on the `rpc` source |
 | Blocky402 unreachable | `payment.paid: false`, narration still delivered |
 | Sepolia RPC unreachable | identity renders unregistered, everything else fine |
 | OpenAI key invalid | `502`, panel keeps its previous line |
@@ -280,19 +317,24 @@ Non-numeric entries in `recentValues` are filtered rather than rejected.
 app/
   page.tsx                 composition root, picks the data source
   api/narrate/route.ts     validate -> pay -> identity -> narrate
-  api/chain-data/route.ts  the x402-metered resource
+  api/activity/route.ts    the subgraph reading the pulse runs on
+  api/chain-data/route.ts  the x402-metered resource, same reading
 components/
   PulseVisual.tsx          0-100 -> CSS custom properties
   NarrationBox.tsx         narration, identity, payment receipt
 hooks/
-  activity.ts              easing, labels, gas normalisation (+ tests)
-  useChainActivity.ts      live Base data
+  activity.ts              easing, labels, both normalisations (+ tests)
+  useGraphActivity.ts      Uniswap swap flow via The Graph
+  useChainActivity.ts      Base gas usage via public RPC
   useMockActivity.ts       random walk, same shape
   useNarration.ts          rolling buffer, 18s cadence
 lib/
+  graph.ts                 the subgraph query and normalisation
   x402.ts                  the paying client
   ens.ts                   identity resolution
 scripts/
+  sample-graph.mjs         probe candidate subgraphs and schemas
+  calibrate-graph.mjs      sample repeatedly to set thresholds
   register-ens.mjs         commit-reveal registration, direct to contracts
   deploy-resolver.mjs      per-name resolver proxy + address record
   set-ens-profile.mjs      avatar / description / url text records

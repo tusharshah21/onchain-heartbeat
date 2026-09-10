@@ -2,6 +2,8 @@ import { HTTPFacilitatorClient } from "@x402/core/server";
 import { ExactHederaScheme } from "@x402/hedera/exact/server";
 import { withX402, x402ResourceServer } from "@x402/next";
 import { NextResponse, type NextRequest } from "next/server";
+
+import { getSwapActivity, graphEnabled } from "@/lib/graph";
 import {
   FACILITATOR_URL,
   FEE_PAYER,
@@ -13,15 +15,33 @@ import {
 } from "@/lib/x402";
 
 /**
- * The metered resource the narrator agent buys before each narration. Paying
- * for it is the demo — the payload itself is just the access receipt.
+ * The metered resource the narrator agent buys before each narration: a live
+ * reading of Uniswap v3 swap flow on Base, read from a Messari standardized
+ * subgraph through The Graph.
+ *
+ * So the payment actually buys something — the agent pays for indexed data,
+ * rather than for a receipt.
  */
 async function handler(_request: NextRequest) {
-  return NextResponse.json({
-    licensed: true,
-    issuedAt: new Date().toISOString(),
-    source: "Base mainnet gas usage, sampled via public RPC",
-  });
+  const base = { licensed: true, issuedAt: new Date().toISOString() };
+  if (!graphEnabled()) {
+    return NextResponse.json({
+      ...base,
+      source: "unavailable — GRAPH_API_KEY is not set",
+    });
+  }
+  try {
+    const reading = await getSwapActivity();
+    return NextResponse.json({
+      ...base,
+      ...reading,
+      source: "Uniswap v3 on Base, via The Graph",
+    });
+  } catch (err) {
+    console.error("[chain-data] subgraph query failed:", err);
+    // Still honour the purchase rather than charging for an error.
+    return NextResponse.json({ ...base, source: "subgraph unavailable" });
+  }
 }
 
 function protectedHandler() {

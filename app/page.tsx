@@ -4,14 +4,31 @@ import NarrationBox from "@/components/NarrationBox";
 import PulseVisual from "@/components/PulseVisual";
 import Sparkline from "@/components/Sparkline";
 import { useChainActivity } from "@/hooks/useChainActivity";
+import { useGraphActivity } from "@/hooks/useGraphActivity";
 import { useMockActivity } from "@/hooks/useMockActivity";
 import { useNarration } from "@/hooks/useNarration";
 
 // Demo-day escape hatch: set NEXT_PUBLIC_DATA_SOURCE=mock in .env.local
 // (then restart dev / rebuild) to fall back to the random walk.
-const SOURCE = process.env.NEXT_PUBLIC_DATA_SOURCE === "mock" ? "mock" : "base";
-const useActivity = SOURCE === "mock" ? useMockActivity : useChainActivity;
-const FEED_LABEL = SOURCE === "mock" ? "mock feed" : "base mainnet";
+// Three interchangeable sources behind one { activityLevel, label } contract:
+//   graph (default) - Uniswap v3 swap flow on Base, via The Graph
+//   rpc             - Base block gas usage, straight from a public RPC
+//   mock            - a random walk, for demos when a feed is unavailable
+const SOURCE = (process.env.NEXT_PUBLIC_DATA_SOURCE ?? "graph") as
+  | "graph"
+  | "rpc"
+  | "mock";
+const useActivity =
+  SOURCE === "mock"
+    ? useMockActivity
+    : SOURCE === "rpc"
+      ? useChainActivity
+      : useGraphActivity;
+const FEED_LABEL = {
+  graph: "uniswap v3 · base · the graph",
+  rpc: "base mainnet gas",
+  mock: "mock feed",
+}[SOURCE];
 
 export default function Home() {
   const { activityLevel, label } = useActivity();

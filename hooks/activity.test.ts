@@ -1,7 +1,7 @@
 // node --test hooks/activity.test.ts
 import assert from "node:assert/strict";
 import test from "node:test";
-import { activityLabel, gasToLevel, nextLevel } from "./activity.ts";
+import { activityLabel, gasToLevel, nextLevel, swapsToLevel } from "./activity.ts";
 
 test("nextLevel eases toward the target, never past it", () => {
   assert.equal(nextLevel(0, 100), 45);
@@ -32,4 +32,17 @@ test("gasToLevel clamps and spans the observed Base range", () => {
   assert.equal(activityLabel(gasToLevel(18_900_000)), "Quiet");
   assert.equal(activityLabel(gasToLevel(26_500_000)), "Moderate activity");
   assert.equal(activityLabel(gasToLevel(41_200_000)), "High activity");
+});
+
+test("swapsToLevel clamps and spans the observed Base range", () => {
+  assert.equal(swapsToLevel(0), 0);
+  assert.equal(swapsToLevel(150), 0);
+  assert.equal(swapsToLevel(600), 100);
+  assert.equal(swapsToLevel(99999), 100);
+  // Observed p10 / p50 / p90 should read Moderate / Moderate / High, and a
+  // lull at 246/min - seen shortly after calibration - should read Quiet.
+  assert.equal(activityLabel(swapsToLevel(246)), "Quiet");
+  assert.equal(activityLabel(swapsToLevel(341)), "Moderate activity");
+  assert.equal(activityLabel(swapsToLevel(405)), "Moderate activity");
+  assert.equal(activityLabel(swapsToLevel(577)), "High activity");
 });

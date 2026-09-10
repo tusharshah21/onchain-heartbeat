@@ -27,5 +27,21 @@ export function gasToLevel(gasUsed: number) {
   return Math.round(Math.min(Math.max(t, 0), 1) * 100);
 }
 
+// Calibrated from the Messari Uniswap-v3-Base subgraph, sampled 2026-09-10:
+// 341 / 405 / 577 / 652 swaps-per-minute at p10 / p50 / p90 / max. The floor is
+// set below that sample's minimum because flow was observed at 246/min shortly
+// afterwards — a two-minute sample understates the real range, so leave the
+// quiet end room. Same two-knob shape as the gas thresholds above.
+const QUIET_SWAPS_PER_MIN = 150; // and below -> 0
+const BUSY_SWAPS_PER_MIN = 600; // and above -> 100
+
+/** Maps Uniswap swaps-per-minute onto the same 0-100 scale. */
+export function swapsToLevel(swapsPerMin: number) {
+  const t =
+    (swapsPerMin - QUIET_SWAPS_PER_MIN) /
+    (BUSY_SWAPS_PER_MIN - QUIET_SWAPS_PER_MIN);
+  return Math.round(Math.min(Math.max(t, 0), 1) * 100);
+}
+
 /** Starting level, shared so both sources hydrate identically. */
 export const INITIAL_LEVEL = 45;

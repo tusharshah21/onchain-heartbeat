@@ -250,7 +250,16 @@ a-drastic-drop-31.posts.onchain-heartbeat.eth
 
 Resolve any post name and you get the comment, the reading behind it, and the
 Hedera transaction that paid for it — so a claim can be traced back to the
-agent that made it and the data it bought.
+agent that made it and the data it bought. Check any of it yourself:
+
+```bash
+node scripts/resolve-post.mjs a-drastic-drop-31.posts.onchain-heartbeat.eth
+node scripts/resolve-post.mjs onchain-heartbeat.eth --control
+```
+
+`--control` also resolves `nick.eth` and `vitalik.eth`, which come back null
+through this resolver — the inversion that shows it is the hackathon
+deployment answering rather than a fallback.
 
 **No subname registration is involved.** The name's Permissioned Resolver keys
 records by DNS-encoded name rather than by node, and the Universal Resolver
@@ -350,6 +359,7 @@ docs/
 scripts/
   sample-graph.mjs         probe candidate subgraphs and schemas
   calibrate-graph.mjs      sample repeatedly to set thresholds
+  resolve-post.mjs         read any name's records back off the chain
   register-ens.mjs         commit-reveal registration, direct to contracts
   deploy-resolver.mjs      per-name resolver proxy + address record
   set-ens-profile.mjs      avatar / description / url text records

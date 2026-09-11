@@ -36,13 +36,18 @@ test("gasToLevel clamps and spans the observed Base range", () => {
 
 test("swapsToLevel clamps and spans the observed Base range", () => {
   assert.equal(swapsToLevel(0), 0);
-  assert.equal(swapsToLevel(150), 0);
-  assert.equal(swapsToLevel(600), 100);
+  assert.equal(swapsToLevel(60), 0);
+  assert.equal(swapsToLevel(1200), 100);
   assert.equal(swapsToLevel(99999), 100);
-  // Observed p10 / p50 / p90 should read Moderate / Moderate / High, and a
-  // lull at 246/min - seen shortly after calibration - should read Quiet.
-  assert.equal(activityLabel(swapsToLevel(246)), "Quiet");
-  assert.equal(activityLabel(swapsToLevel(341)), "Moderate activity");
+
+  // Every rate actually observed on Base must land somewhere legible - the
+  // overnight lull included, since a linear scale pinned that at zero and the
+  // pulse flatlined.
+  assert.equal(activityLabel(swapsToLevel(121)), "Quiet");
+  assert.equal(activityLabel(swapsToLevel(246)), "Moderate activity");
   assert.equal(activityLabel(swapsToLevel(405)), "Moderate activity");
-  assert.equal(activityLabel(swapsToLevel(577)), "High activity");
+  assert.equal(activityLabel(swapsToLevel(652)), "High activity");
+
+  // The overnight rate must never render as a dead pulse again.
+  assert.ok(swapsToLevel(121) >= 15, "an overnight lull should still beat");
 });

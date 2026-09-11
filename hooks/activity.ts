@@ -27,20 +27,23 @@ export function gasToLevel(gasUsed: number) {
   return Math.round(Math.min(Math.max(t, 0), 1) * 100);
 }
 
-// Calibrated from the Messari Uniswap-v3-Base subgraph, sampled 2026-09-10:
-// 341 / 405 / 577 / 652 swaps-per-minute at p10 / p50 / p90 / max. The floor is
-// set below that sample's minimum because flow was observed at 246/min shortly
-// afterwards — a two-minute sample understates the real range, so leave the
-// quiet end room. Same two-knob shape as the gas thresholds above.
-const QUIET_SWAPS_PER_MIN = 150; // and below -> 0
-const BUSY_SWAPS_PER_MIN = 600; // and above -> 100
+// Swap flow is multiplicative, not additive: a 2.5-minute daytime sample gave
+// 341-652 per minute, and the same chain was doing 121 overnight. Anything
+// linear across that spread pins half the day at zero — the first calibration
+// did exactly that, and the pulse flatlined after dark.
+//
+// So the scale is logarithmic between a genuinely dead chain and a genuine
+// spike. Observed points land at: 121 -> 23, 246 -> 47, 405 -> 64, 652 -> 80.
+// Quiet still reads as a slow pulse rather than a flat line.
+const DEAD_SWAPS_PER_MIN = 60; // and below -> 0
+const SPIKE_SWAPS_PER_MIN = 1200; // and above -> 100
+const LOG_RANGE = Math.log(SPIKE_SWAPS_PER_MIN / DEAD_SWAPS_PER_MIN);
 
 /** Maps Uniswap swaps-per-minute onto the same 0-100 scale. */
 export function swapsToLevel(swapsPerMin: number) {
-  const t =
-    (swapsPerMin - QUIET_SWAPS_PER_MIN) /
-    (BUSY_SWAPS_PER_MIN - QUIET_SWAPS_PER_MIN);
-  return Math.round(Math.min(Math.max(t, 0), 1) * 100);
+  if (!Number.isFinite(swapsPerMin) || swapsPerMin <= DEAD_SWAPS_PER_MIN) return 0;
+  const t = Math.log(swapsPerMin / DEAD_SWAPS_PER_MIN) / LOG_RANGE;
+  return Math.round(Math.min(t, 1) * 100);
 }
 
 /** Starting level, shared so both sources hydrate identically. */

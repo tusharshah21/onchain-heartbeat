@@ -64,15 +64,17 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Pulled up: the pulse element is square, so its lower corners are
+            empty and the label would otherwise float away from the ring. */}
         <p
           key={label}
           aria-live="polite"
-          className="narration-line mt-1 text-[clamp(1.2rem,3vw,1.7rem)] font-light tracking-wide text-white/90"
+          className="narration-line -mt-[1.5%] text-[clamp(1.3rem,3.2vw,1.9rem)] font-light tracking-[0.01em] text-white/90"
         >
           {label}
         </p>
 
-        <div className="mt-1 flex flex-col items-center">
+        <div className="mt-3 flex flex-col items-center gap-1.5">
           <Sparkline values={recent} />
           <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-white/20">
             last {Math.max(recent.length, 1)} readings

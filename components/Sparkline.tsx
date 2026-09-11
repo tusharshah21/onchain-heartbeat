@@ -1,8 +1,8 @@
 /** Shape of the last few readings, so the trend is visible, not just the number. */
 export default function Sparkline({
   values,
-  width = 132,
-  height = 28,
+  width = 208,
+  height = 40,
 }: {
   values: number[];
   width?: number;

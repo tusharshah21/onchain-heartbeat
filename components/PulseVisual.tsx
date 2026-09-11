@@ -4,6 +4,12 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 const TICKS = 64;
 
+// Trig differs in the last bit between Node and the browser, so raw
+// coordinates hydrate as a mismatch (171.1169617093718 vs ...82). Two decimals
+// on a 200-unit viewBox is well past what a 1px tick can show, and it makes
+// both sides byte-identical.
+const round = (n: number) => Math.round(n * 100) / 100;
+
 /** Purely presentational: give it 0-100, it beats accordingly. */
 export default function PulseVisual({ activityLevel }: { activityLevel: number }) {
   const t = Math.min(Math.max(activityLevel, 0), 100) / 100;
@@ -35,10 +41,10 @@ export default function PulseVisual({ activityLevel }: { activityLevel: number }
           return (
             <line
               key={i}
-              x1={100 + Math.cos(angle) * r1}
-              y1={100 + Math.sin(angle) * r1}
-              x2={100 + Math.cos(angle) * r2}
-              y2={100 + Math.sin(angle) * r2}
+              x1={round(100 + Math.cos(angle) * r1)}
+              y1={round(100 + Math.sin(angle) * r1)}
+              x2={round(100 + Math.cos(angle) * r2)}
+              y2={round(100 + Math.sin(angle) * r2)}
               stroke={on ? "hsl(var(--hue) 90% 62%)" : "hsl(var(--hue) 30% 26%)"}
               strokeWidth={on ? 1.6 : 1}
               strokeLinecap="round"

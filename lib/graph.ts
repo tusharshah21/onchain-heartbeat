@@ -8,9 +8,13 @@ import { swapsToLevel } from "@/hooks/activity";
  * the client polls /api/activity rather than the gateway directly.
  */
 
-const SUBGRAPH =
-  process.env.GRAPH_SUBGRAPH_ID ?? "FUbEPQw1oMghy39fwWBFY5fE6MXPXZQtjncQy2cXdrNS";
-const KEY = process.env.GRAPH_API_KEY;
+// Trimmed because these are usually pasted into a dashboard, and a trailing
+// space survives Boolean() but lands in the URL path and gets the request
+// rejected — which looks exactly like a bad key.
+const SUBGRAPH = (
+  process.env.GRAPH_SUBGRAPH_ID ?? "FUbEPQw1oMghy39fwWBFY5fE6MXPXZQtjncQy2cXdrNS"
+).trim();
+const KEY = process.env.GRAPH_API_KEY?.trim();
 const TIMEOUT_MS = 12000;
 
 // 500 swaps spans roughly a minute at current rates. A wider window matters:
